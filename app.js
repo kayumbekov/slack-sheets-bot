@@ -188,8 +188,8 @@ async function processFileClaim(fileId, driveFolderId) {
 
             // Return a direct link that Google Sheets =IMAGE can use.
             // webViewLink is a preview page; use the `uc?export=view&id=` pattern to embed images.
-            const fileId = driveResult.data.id;
-            const directImageUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+            const driveFileId = driveResult.data.id; // renamed to avoid shadowing
+            const directImageUrl = `https://drive.google.com/uc?export=view&id=${driveFileId}`;
             return directImageUrl;
         }
 
@@ -224,27 +224,24 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
 
     const notesText = getField('notes_block', 'notes_input') && getField('notes_block', 'notes_input').value || '';
 
-    // Note: Slack modal file inputs are not always available in view.state; guard against missing data.
-    const rawImageField = getField('image_block', 'image_input');
-    const imageFiles = (rawImageField && Array.isArray(rawImageField.files)) ? rawImageField.files : [];
+    const modalFiles = Array.isArray(view.files)
+        ? view.files
+        : (Array.isArray(body.files) ? body.files : []);
+    const imageFileIds = modalFiles.filter(file => file && file.id).map(file => file.id);
 
     // 5c. Start the Asynchronous Google Logic
     try {
-    console.log(`Processing claim for Row: ${rowNumber || '[missing]'} . Files count: ${imageFiles.length}`);
+        console.log(`Processing claim for Row: ${rowNumber || '[missing]'} . Files count: ${imageFileIds.length}`);
 
         // --- 🔑 PLACEHOLDER FOR CORE LOGIC: Google Drive & Sheets Update ---
         
         const uploadedUrls = []; // This will hold the Drive URLs after upload
         const driveFolderId = '1pAkEignCWb-Aoy4oCHKsiJSN5Tcee09S'; // <--- IMPORTANT: Verify your Drive folder ID
 
-        if (imageFiles.length > 0) {
-            // Only process entries that have an `id` property
-            const validFiles = imageFiles.filter(f => f && f.id).map(f => f.id);
-            if (validFiles.length > 0) {
-                const uploadPromises = validFiles.map(fid => processFileClaim(fid, driveFolderId));
-                const allUrls = await Promise.all(uploadPromises);
-                uploadedUrls.push(...allUrls);
-            }
+        if (imageFileIds.length > 0) {
+            const uploadPromises = imageFileIds.map(fid => processFileClaim(fid, driveFolderId));
+            const allUrls = await Promise.all(uploadPromises);
+            uploadedUrls.push(...allUrls);
         }
         
 

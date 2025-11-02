@@ -18,10 +18,14 @@
     "url": "https://github.com/kayumbekov/slack-sheets-bot/issues"
   },
   "homepage": "https://github.com/kayumbekov/slack-sheets-bot#readme",
+  "engines": {
+    "node": ">=18 <23",
+    "npm": ">=10"
+  },
   "dependencies": {
     "@slack/bolt": "^4.6.0",
     "axios": "^1.13.1",
-    "dotenv": "^16.4.5",
+    "dotenv": "16.4.5",
     "googleapis": "^164.1.0"
   }
 }
