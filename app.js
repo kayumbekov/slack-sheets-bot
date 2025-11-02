@@ -34,6 +34,26 @@ if (receiver && receiver.app) {
     });
 }
 
+// Log basic info for incoming Slack requests so we can debug dispatch failures
+if (receiver && receiver.app) {
+    receiver.app.use((req, res, next) => {
+        try {
+            if (req.path && req.path.startsWith('/slack/')) {
+                console.log('>>> Incoming Slack request:', req.method, req.path);
+                console.log('    Slack headers:', {
+                    'x-slack-signature': req.headers['x-slack-signature'],
+                    'x-slack-request-timestamp': req.headers['x-slack-request-timestamp'],
+                    host: req.headers.host,
+                    'user-agent': req.headers['user-agent']
+                });
+            }
+        } catch (err) {
+            console.error('Error logging Slack request headers:', err && err.message ? err.message : err);
+        }
+        next();
+    });
+}
+
 // --- 3. Google OAuth2 Client Setup (Keyless Auth) ---
 // This client object will be used for both Sheets and Drive API calls.
 const oauth2Client = new google.auth.OAuth2(
@@ -279,6 +299,16 @@ await sheets.spreadsheets.values.update({
     await app.start(PORT);
     console.log(`⚡️ Bolt app is running on port ${PORT}!`);
 })();
+
+// Global error handlers to ensure uncaught exceptions/rejections are logged to Heroku logs
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception thrown:', err && err.stack ? err.stack : err);
+    // Do not exit immediately on Heroku; let the platform restart if needed.
+});
 
 // --- 7. Reminder for Heroku Config Vars ---
 // Reminder: set these environment variables on Heroku (and locally in .env). Do NOT commit secrets to source control.
