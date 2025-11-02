@@ -22,6 +22,18 @@ const app = new App({
     receiver,
 });
 
+// Expose a simple root route so visiting the Heroku app URL doesn't show "Cannot GET /".
+// Also expose a health endpoint for uptime checks.
+if (receiver && receiver.app) {
+    receiver.app.get('/', (req, res) => {
+        res.send('Slack Sheets Bot is running.');
+    });
+
+    receiver.app.get('/healthz', (req, res) => {
+        res.status(200).send('OK');
+    });
+}
+
 // --- 3. Google OAuth2 Client Setup (Keyless Auth) ---
 // This client object will be used for both Sheets and Drive API calls.
 const oauth2Client = new google.auth.OAuth2(
