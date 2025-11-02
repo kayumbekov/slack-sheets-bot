@@ -16,5 +16,10 @@
   "bugs": {
     "url": "https://github.com/kayumbekov/slack-sheets-bot/issues"
   },
-  "homepage": "https://github.com/kayumbekov/slack-sheets-bot#readme"
+  "homepage": "https://github.com/kayumbekov/slack-sheets-bot#readme",
+  "dependencies": {
+    "@slack/bolt": "^4.6.0",
+    "dotenv": "^17.2.3",
+    "googleapis": "^164.1.0"
+  }
 }
