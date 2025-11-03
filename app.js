@@ -213,6 +213,13 @@ app.command('/return_claim', async ({ ack, body, client }) => {
 app.view('return_claim_modal', async ({ ack, body, view, client }) => {
     await ack();
 
+    // --- DETAILED DEBUG LOGGING ---
+    // Log the entire view payload to find where the file data is.
+    // You can remove this after debugging is complete.
+    console.log('--- Full View Submission Payload ---');
+    console.log(JSON.stringify(body, null, 2));
+    console.log('------------------------------------');
+
     const user = body.user.id;
     const values = view.state.values;
 
@@ -220,10 +227,10 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
     const newStatus = values.status_block.status_input.selected_option?.value || '';
     const notesText = values.notes_block.notes_input.value || '';
 
-    // Prefer file IDs from file_input.selected_files
-    const fileInputEl = values?.image_block?.image_input;
-    const selectedFileIds = Array.isArray(fileInputEl?.selected_files) ? fileInputEl.selected_files : [];
-    console.log('Selected file IDs from file_input:', selectedFileIds);
+    // Correctly extract file objects from the file_input state
+    const fileInputFiles = values?.image_block?.image_input?.files || [];
+    const selectedFileIds = fileInputFiles.map(f => f.id);
+    console.log('Extracted file IDs from view state:', selectedFileIds);
 
     if (!rowNumber) {
         await client.chat.postMessage({ channel: user, text: '❌ Error: Row number is required.' });
