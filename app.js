@@ -220,15 +220,10 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
     const newStatus = values.status_block.status_input.selected_option?.value || '';
     const notesText = values.notes_block.notes_input.value || '';
 
-    // Robust file extraction for file_input
-    const imageFiles =
-        (Array.isArray(view?.files) && view.files.length) ? view.files
-        : (Array.isArray(body?.view?.files) && body.view.files.length) ? body.view.files
-        : (Array.isArray(body?.files) && body.files.length) ? body.files
-        : [];
-
-    // Optional quick debug (safe to keep)
-    console.log('Files detected in view submission:', imageFiles.map(f => f.id));
+    // Prefer file IDs from file_input.selected_files
+    const fileInputEl = values?.image_block?.image_input;
+    const selectedFileIds = Array.isArray(fileInputEl?.selected_files) ? fileInputEl.selected_files : [];
+    console.log('Selected file IDs from file_input:', selectedFileIds);
 
     if (!rowNumber) {
         await client.chat.postMessage({ channel: user, text: '❌ Error: Row number is required.' });
@@ -236,7 +231,6 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
     }
 
     try {
-        // Proactively verify Google auth readiness before doing any Drive/Sheets calls
         const googleReady = await ensureGoogleAuthReady();
         if (!googleReady) {
             await client.chat.postMessage({
@@ -246,7 +240,6 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
             return;
         }
 
-        // Verify the 'Amazon' tab exists before updating
         const { exists, titles } = await ensureSheetExists(SHEET_ID, SHEET_NAME);
         if (!exists) {
             await client.chat.postMessage({
@@ -257,15 +250,19 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
         }
 
         const driveFolderId = '1pAkEignCWb-Aoy4oCHKsiJSN5Tcee09S';
-        const uploadPromises = imageFiles.map(file => processAndUploadFile(file.id, driveFolderId));
-        const uploadedUrls = await Promise.all(uploadPromises);
+        const uploadedUrls = [];
+
+        if (selectedFileIds.length > 0) {
+            const uploadPromises = selectedFileIds.map(fid => processAndUploadFile(fid, driveFolderId));
+            const allUrls = await Promise.all(uploadPromises);
+            uploadedUrls.push(...allUrls);
+        }
 
         const firstImageUrl = uploadedUrls[0] || '';
         const imageFormula = firstImageUrl ? `=IMAGE("${firstImageUrl}", 1)` : '';
         const remainingImageUrls = uploadedUrls.slice(1, 5);
         const fillColumns = remainingImageUrls.concat(Array(4 - remainingImageUrls.length).fill(''));
 
-        // Build range using explicit tab name
         const updateRange = `${SHEET_NAME}!L${rowNumber}:S${rowNumber}`;
 
         await sheets.spreadsheets.values.update({
