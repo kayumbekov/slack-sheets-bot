@@ -17,6 +17,15 @@ const app = new App({
     receiver,
 });
 
+// Add this middleware to log incoming requests for debugging
+receiver.app.use((req, res, next) => {
+    if (req.path.startsWith('/slack/')) {
+        console.log('--> Incoming Slack request:', req.method, req.path);
+        console.log('    Body:', JSON.stringify(req.body || {}));
+    }
+    next();
+});
+
 // --- 3. Google OAuth2 Client Setup ---
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
