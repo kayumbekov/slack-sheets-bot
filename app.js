@@ -4,27 +4,26 @@ const { App, ExpressReceiver } = require('@slack/bolt');
 const { google } = require('googleapis');
 const axios = require('axios');
 const { PassThrough } = require('stream');
+const express = require('express'); // Import express
 
 // --- 2. Application Configuration ---
 const PORT = process.env.PORT || 3000;
 
 const receiver = new ExpressReceiver({
     signingSecret: process.env.SLACK_SIGNING_SECRET,
+    processBeforeResponse: true, // Required for custom body parsing
 });
+
+// Manually add the urlencoded body parser that Slack needs
+receiver.app.use(express.urlencoded({ extended: true }));
 
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
     receiver,
 });
 
-// Add this middleware to log incoming requests for debugging
-receiver.app.use((req, res, next) => {
-    if (req.path.startsWith('/slack/')) {
-        console.log('--> Incoming Slack request:', req.method, req.path);
-        console.log('    Body:', JSON.stringify(req.body || {}));
-    }
-    next();
-});
+// Remove the custom logging middleware, as it can interfere with body parsing.
+// Bolt will log errors automatically.
 
 // --- 3. Google OAuth2 Client Setup ---
 const oauth2Client = new google.auth.OAuth2(
