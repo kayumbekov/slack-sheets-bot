@@ -12,6 +12,12 @@ const PORT = process.env.PORT || 3000;
 // Create a receiver
 const receiver = new ExpressReceiver({
     signingSecret: process.env.SLACK_SIGNING_SECRET,
+    endpoints: {
+        commands: '/slack/commands',
+        actions: '/slack/actions',
+        events: '/slack/events',
+        options: '/slack/options'
+    }
 });
 
 // Initialize the app with the receiver
