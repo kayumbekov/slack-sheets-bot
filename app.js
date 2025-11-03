@@ -75,7 +75,7 @@ const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
 // Explicit targets
-const SHEET_ID = '1frYc-OnrqaA2M1Tkf2fTLzYX2Ncb0dQHLdCEPV1V7cs';
+const SHEET_ID = '1_N_KPtrxjwKETkw1alArfNk94nDcFj5KA6NrnuS1ICE';
 const SHEET_NAME = 'Amazon';
 
 // Helper: verify the target tab exists
