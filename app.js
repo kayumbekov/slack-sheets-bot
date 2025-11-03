@@ -1,20 +1,23 @@
 // --- 1. Dependencies and Initialization ---
 require('dotenv').config();
-const { App } = require('@slack/bolt'); // Remove ExpressReceiver
+const { App, ExpressReceiver } = require('@slack/bolt'); // Re-add ExpressReceiver
 const { google } = require('googleapis');
 const axios = require('axios');
 const { PassThrough } = require('stream');
-// const express = require('express'); // No longer needed
-// const http = require('http'); // No longer needed
+const http = require('http'); // Import http
 
 // --- 2. Application Configuration ---
 const PORT = process.env.PORT || 3000;
 
-// Initialize the app directly. Bolt will create its own server.
+// Create a receiver
+const receiver = new ExpressReceiver({
+    signingSecret: process.env.SLACK_SIGNING_SECRET,
+});
+
+// Initialize the app with the receiver
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
-    signingSecret: process.env.SLACK_SIGNING_SECRET,
-    // The `socketMode: true` and `appToken` are not needed for HTTP mode on Heroku
+    receiver,
 });
 
 // --- 3. Google OAuth2 Client Setup ---
@@ -196,12 +199,14 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
 });
 
 // --- 7. Health Check and Start App ---
-// Add custom routes for health checks before starting the app
-app.get('/', (req, res) => res.send('Slack Sheets Bot is running.'));
-app.get('/healthz', (req, res) => res.status(200).send('OK'));
+// Add custom routes to the receiver's express app
+receiver.app.get('/', (req, res) => res.send('Slack Sheets Bot is running.'));
+receiver.app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
 (async () => {
-    // Start the app
-    await app.start(PORT);
-    console.log(`⚡️ Bolt app is running on port ${PORT}`);
+    // Use the receiver's app to create a server and start it
+    const server = http.createServer(receiver.app);
+    server.listen(PORT, () => {
+        console.log(`⚡️ Bolt app is running on port ${PORT}`);
+    });
 })();
