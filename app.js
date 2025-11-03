@@ -1,30 +1,21 @@
 // --- 1. Dependencies and Initialization ---
 require('dotenv').config();
-const { App, ExpressReceiver } = require('@slack/bolt');
+const { App } = require('@slack/bolt'); // Remove ExpressReceiver
 const { google } = require('googleapis');
 const axios = require('axios');
 const { PassThrough } = require('stream');
-const express = require('express'); // Import express
-const http = require('http'); // Import http
+// const express = require('express'); // No longer needed
+// const http = require('http'); // No longer needed
 
 // --- 2. Application Configuration ---
 const PORT = process.env.PORT || 3000;
 
-const receiver = new ExpressReceiver({
-    signingSecret: process.env.SLACK_SIGNING_SECRET,
-    processBeforeResponse: true, // Required for custom body parsing
-});
-
-// Manually add the urlencoded body parser that Slack needs
-receiver.app.use(express.urlencoded({ extended: true }));
-
+// Initialize the app directly. Bolt will create its own server.
 const app = new App({
     token: process.env.SLACK_BOT_TOKEN,
-    receiver,
+    signingSecret: process.env.SLACK_SIGNING_SECRET,
+    // The `socketMode: true` and `appToken` are not needed for HTTP mode on Heroku
 });
-
-// Remove the custom logging middleware, as it can interfere with body parsing.
-// Bolt will log errors automatically.
 
 // --- 3. Google OAuth2 Client Setup ---
 const oauth2Client = new google.auth.OAuth2(
@@ -205,17 +196,12 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
 });
 
 // --- 7. Health Check and Start App ---
-receiver.app.get('/', (req, res) => res.send('Slack Sheets Bot is running.'));
-receiver.app.get('/healthz', (req, res) => res.status(200).send('OK'));
+// Add custom routes for health checks before starting the app
+app.get('/', (req, res) => res.send('Slack Sheets Bot is running.'));
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
-// (async () => {
-//     await app.start(PORT);
-//     console.log(`⚡️ Bolt app is running on port ${PORT}`);
-// })();
-
-// Use a standard HTTP server setup for better compatibility
-const server = http.createServer(receiver.app);
-
-server.listen(PORT, () => {
+(async () => {
+    // Start the app
+    await app.start(PORT);
     console.log(`⚡️ Bolt app is running on port ${PORT}`);
-});
+})();
