@@ -5,6 +5,7 @@ const { google } = require('googleapis');
 const axios = require('axios');
 const { PassThrough } = require('stream');
 const express = require('express'); // Import express
+const http = require('http'); // Import http
 
 // --- 2. Application Configuration ---
 const PORT = process.env.PORT || 3000;
@@ -207,7 +208,14 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
 receiver.app.get('/', (req, res) => res.send('Slack Sheets Bot is running.'));
 receiver.app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
-(async () => {
-    await app.start(PORT);
+// (async () => {
+//     await app.start(PORT);
+//     console.log(`⚡️ Bolt app is running on port ${PORT}`);
+// })();
+
+// Use a standard HTTP server setup for better compatibility
+const server = http.createServer(receiver.app);
+
+server.listen(PORT, () => {
     console.log(`⚡️ Bolt app is running on port ${PORT}`);
-})();
+});
