@@ -219,7 +219,16 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
     const rowNumber = values.row_block.row_input.value?.trim();
     const newStatus = values.status_block.status_input.selected_option?.value || '';
     const notesText = values.notes_block.notes_input.value || '';
-    const imageFiles = view.files || [];
+
+    // Robust file extraction for file_input
+    const imageFiles =
+        (Array.isArray(view?.files) && view.files.length) ? view.files
+        : (Array.isArray(body?.view?.files) && body.view.files.length) ? body.view.files
+        : (Array.isArray(body?.files) && body.files.length) ? body.files
+        : [];
+
+    // Optional quick debug (safe to keep)
+    console.log('Files detected in view submission:', imageFiles.map(f => f.id));
 
     if (!rowNumber) {
         await client.chat.postMessage({ channel: user, text: '❌ Error: Row number is required.' });
@@ -247,7 +256,7 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
             return;
         }
 
-        const driveFolderId = '1pAkEignCWb-Aoy4oCHKsiJSN5Tcee09S'; // IMPORTANT: Your Google Drive Folder ID
+        const driveFolderId = '1pAkEignCWb-Aoy4oCHKsiJSN5Tcee09S';
         const uploadPromises = imageFiles.map(file => processAndUploadFile(file.id, driveFolderId));
         const uploadedUrls = await Promise.all(uploadPromises);
 
