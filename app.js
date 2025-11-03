@@ -6,6 +6,22 @@ const axios = require('axios');
 const { PassThrough } = require('stream');
 const http = require('http'); // Import http
 
+// --- 1a. Validate required environment variables (logs only; does not crash) ---
+(function validateRequiredEnv() {
+    const required = [
+        'SLACK_BOT_TOKEN',
+        'SLACK_SIGNING_SECRET',
+        'GOOGLE_CLIENT_ID',
+        'GOOGLE_CLIENT_SECRET',
+        'GOOGLE_REFRESH_TOKEN'
+    ];
+    const missing = required.filter((k) => !process.env[k]);
+    if (missing.length) {
+        console.error('Missing required environment variables:', missing.join(', '));
+        console.error('Set them via Heroku config:set KEY=VALUE before using Google APIs.');
+    }
+})();
+
 // --- 2. Application Configuration ---
 const PORT = process.env.PORT || 3000;
 
@@ -33,12 +49,26 @@ const oauth2Client = new google.auth.OAuth2(
     'https://developers.google.com/oauthplayground' // Redirect URI
 );
 
+// Ensure we at least attach the refresh token when available
 oauth2Client.setCredentials({
     refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
 
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
-const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+// Helper to proactively verify Google auth can obtain an access token
+async function ensureGoogleAuthReady() {
+    try {
+        // Throws if refresh token is missing/invalid
+        const token = await oauth2Client.getAccessToken();
+        if (!token || !token.token) {
+            console.error('Google OAuth: received empty access token.');
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.error('Google OAuth access token fetch failed:', e && e.message ? e.message : e);
+        return false;
+    }
+}
 
 // --- 4. Helper Function: Process and Upload File ---
 async function processAndUploadFile(fileId, driveFolderId) {
@@ -170,6 +200,16 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
     }
 
     try {
+        // Proactively verify Google auth readiness before doing any Drive/Sheets calls
+        const googleReady = await ensureGoogleAuthReady();
+        if (!googleReady) {
+            await client.chat.postMessage({
+                channel: user,
+                text: '❌ Google authorization is not configured. An admin must set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN on Heroku (heroku config:set ...).'
+            });
+            return;
+        }
+
         const driveFolderId = '1pAkEignCWb-Aoy4oCHKsiJSN5Tcee09S'; // IMPORTANT: Your Google Drive Folder ID
         const uploadPromises = imageFiles.map(file => processAndUploadFile(file.id, driveFolderId));
         const uploadedUrls = await Promise.all(uploadPromises);
