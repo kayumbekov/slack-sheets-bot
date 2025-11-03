@@ -70,6 +70,33 @@ async function ensureGoogleAuthReady() {
     }
 }
 
+// Initialize Google Drive and Sheets APIs
+const drive = google.drive({ version: 'v3', auth: oauth2Client });
+const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+
+// Explicit targets
+const SHEET_ID = '1frYc-OnrqaA2M1Tkf2fTLzYX2Ncb0dQHLdCEPV1V7cs';
+const SHEET_NAME = 'Amazon';
+
+// Helper: verify the target tab exists
+async function ensureSheetExists(spreadsheetId, sheetName) {
+    try {
+        const meta = await sheets.spreadsheets.get({
+            spreadsheetId,
+            fields: 'sheets.properties.title'
+        });
+        const titles = (meta.data.sheets || []).map(s => s.properties.title);
+        const exists = titles.includes(sheetName);
+        if (!exists) {
+            console.error(`Sheet tab "${sheetName}" not found. Available tabs: ${titles.join(', ')}`);
+        }
+        return { exists, titles };
+    } catch (e) {
+        console.error('Failed to fetch spreadsheet metadata:', e && e.message ? e.message : e);
+        return { exists: false, titles: [] };
+    }
+}
+
 // --- 4. Helper Function: Process and Upload File ---
 async function processAndUploadFile(fileId, driveFolderId) {
     try {
@@ -210,6 +237,16 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
             return;
         }
 
+        // Verify the 'Amazon' tab exists before updating
+        const { exists, titles } = await ensureSheetExists(SHEET_ID, SHEET_NAME);
+        if (!exists) {
+            await client.chat.postMessage({
+                channel: user,
+                text: `❌ Sheet tab "${SHEET_NAME}" not found. Available tabs: ${titles.join(', ') || '[none]'}.`
+            });
+            return;
+        }
+
         const driveFolderId = '1pAkEignCWb-Aoy4oCHKsiJSN5Tcee09S'; // IMPORTANT: Your Google Drive Folder ID
         const uploadPromises = imageFiles.map(file => processAndUploadFile(file.id, driveFolderId));
         const uploadedUrls = await Promise.all(uploadPromises);
@@ -219,8 +256,8 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
         const remainingImageUrls = uploadedUrls.slice(1, 5);
         const fillColumns = remainingImageUrls.concat(Array(4 - remainingImageUrls.length).fill(''));
 
-        const SHEET_ID = '1frYc-OnrqaA2M1Tkf2fTLzYX2Ncb0dQHLdCEPV1V7cs'; // IMPORTANT: Your Google Sheet ID
-        const updateRange = `Amazon!L${rowNumber}:S${rowNumber}`;
+        // Build range using explicit tab name
+        const updateRange = `${SHEET_NAME}!L${rowNumber}:S${rowNumber}`;
 
         await sheets.spreadsheets.values.update({
             spreadsheetId: SHEET_ID,
