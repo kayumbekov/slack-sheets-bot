@@ -1,0 +1,21 @@
+{
+  "name": "slack-sheets-bot",
+  "version": "1.0.0",
+  "description": "A Slack bot to update Google Sheets.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.19.0",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "googleapis": "^140.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
