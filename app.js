@@ -77,6 +77,7 @@ const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 // Explicit targets
 const SHEET_ID = '1_N_KPtrxjwKETkw1alArfNk94nDcFj5KA6NrnuS1ICE';
 const SHEET_NAME = 'Amazon';
+const NOTIFICATION_CHANNEL_ID = 'C09GY7B71A5'; // <-- IMPORTANT: Replace with your channel ID (e.g., 'C01234567')
 
 // Helper: verify the target tab exists
 async function ensureSheetExists(spreadsheetId, sheetName) {
@@ -281,10 +282,66 @@ app.view('return_claim_modal', async ({ ack, body, view, client }) => {
             },
         });
 
+        // --- 1. Send DM to user (existing) ---
         await client.chat.postMessage({
             channel: user,
             text: `✅ Claim successfully processed for Row ${rowNumber}!\nImages uploaded: ${uploadedUrls.length}`,
         });
+
+        // --- 2. Send formatted message to the notification channel ---
+        if (NOTIFICATION_CHANNEL_ID && NOTIFICATION_CHANNEL_ID !== 'YOUR_CHANNEL_ID') {
+            const messageBlocks = [
+                {
+                    type: 'header',
+                    text: {
+                        type: 'plain_text',
+                        text: '📦 New Return Claim Submitted',
+                    },
+                },
+                {
+                    type: 'section',
+                    fields: [
+                        { type: 'mrkdwn', text: `*Submitted By:*\n<@${user}>` },
+                        { type: 'mrkdwn', text: `*Row Number:*\n${rowNumber}` },
+                        { type: 'mrkdwn', text: `*New Status:*\n${newStatus}` },
+                    ],
+                },
+            ];
+
+            if (notesText) {
+                messageBlocks.push({ type: 'divider' });
+                messageBlocks.push({
+                    type: 'section',
+                    text: { type: 'mrkdwn', text: `*Notes:*\n${notesText}` },
+                });
+            }
+
+            if (uploadedUrls.length > 0) {
+                messageBlocks.push({ type: 'divider' });
+                // Display the first image directly
+                messageBlocks.push({
+                    type: 'image',
+                    title: { type: 'plain_text', text: 'Primary Image' },
+                    image_url: uploadedUrls[0],
+                    alt_text: 'Primary claim image',
+                });
+                // List any additional image links
+                if (uploadedUrls.length > 1) {
+                    const otherLinks = uploadedUrls.slice(1).map((url, i) => `<${url}|Image ${i + 2}>`).join(', ');
+                    messageBlocks.push({
+                        type: 'context',
+                        elements: [{ type: 'mrkdwn', text: `Additional images: ${otherLinks}` }],
+                    });
+                }
+            }
+
+            await client.chat.postMessage({
+                channel: NOTIFICATION_CHANNEL_ID,
+                text: `New return claim for row ${rowNumber} submitted by <@${user}>.`, // Fallback text for notifications
+                blocks: messageBlocks,
+            });
+        }
+
     } catch (error) {
         console.error('Error during claim submission:', error);
         await client.chat.postMessage({
